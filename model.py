@@ -18,6 +18,7 @@ import keras
 from keras.models import Sequential 
 from keras.layers import \
     Cropping2D, Lambda, Convolution2D, Dense, Flatten,  Dropout
+from keras.optimizers import Adam
     
 from sklearn.model_selection import train_test_split
 import sklearn
@@ -25,7 +26,7 @@ import sklearn
 import cv2
 
 #%%
-assert(  keras.backend.image_data_format()  == 'channels_last' )
+assert keras.backend.image_data_format()  == 'channels_last' 
 #%%
 #TODO
 # - add left/right images with perturbed angle...
@@ -46,29 +47,78 @@ DATA_DIR = r"C:/_DATA/autonomous-driving-nd/behavioral_cloning/"
 if os.name != 'nt' : 
     DATA_DIR = "/home/workspace/"
 #%%
-def main() :
+def train_1_config() :
+    cfg = { "dropout_d1" : 0.6, # dropout rate at first dense layer
+        "dropout_cs" : 0.4, # dropout rate at conv layers layer
+        "batch_size" : 32, 
+        "epochs" : 20, 
+        "learning_rate" : 0.0005,   
+        "final_activation" : "tanh",
+        "side_img_correct_mode" : "additive",
+        "side_img_correct_param" : 0.10 }
+    
+    samples = read_samples()
+    model_h5_path, model_pars_json = get_model_path( cfg, len(samples) ) 
+    
+    model = train_model( cfg, samples )
+    model.save( model_h5_path )
+    
+def search_correction_params() :
     #%%
     cfg = { "dropout_d1" : 0.6, # dropout rate at first dense layer
             "dropout_cs" : 0.4, # dropout rate at conv layers layer
             "batch_size" : 32, 
             "epochs" : 20, 
+            "learning_rate" : 0.0005,   
             "final_activation" : "tanh",
-            "side_image_correction_mode" : "additive",
-            "side_image_correction_param" : 0.10 }
+            "side_img_correct_mode" : "additive",
+            "side_img_correct_param" : 0.10 }
     #%%
     samples = read_samples()
     #%%
+    mode = None 
+    param = 0.0
+    #%%
+    params_for_mode = { None : [0.0],
+                        "additive" : [0.03, 0.05, 0.10, 0.25, 0.50], 
+                        "multiplicative" : [0.05, 0.10, 0.25, 0.50] 
+                        }                    
+    #%%
+    cnt = 0 
+    for mode, param_vals in params_for_mode.items()  : 
+        for param in  param_vals :
+            
+            cfg["side_img_correct_mode"]  = mode
+            cfg["side_img_correct_param"]  = param
+            
+            cnt += 1
+            print( "\n\n %d" % cnt, cfg )
+            
+            model_h5_path, model_pars_json = get_model_path( cfg, len(samples) ) 
+            
+            if os.path.exists( model_h5_path ) : 
+                print( model_h5_path + " already there. Skipping..." )
+                continue 
+            
+            with open( model_pars_json, "wt") as f_out : 
+                print( json.dumps(cfg), file=f_out)
+                        
+            model = train_model( cfg, samples )
+            model.save( model_h5_path )
+                
+    #%%
+    
+def get_model_path( cfg, n_samples ) : 
     model_str = str( sorted( list( cfg.items() ))  )
     model_hash = hashlib.sha256( model_str.encode("utf-8") ).hexdigest()[:12] 
     
-    with open( DATA_DIR + "model_" + model_hash + ".json", "wt") as f_out : 
-        print( json.dumps(cfg), file=f_out)
+    model_h5_path =  DATA_DIR + "model_{h}_{ns}.h5".format(
+                          h=model_hash, ns=n_samples )
+    model_pars_json = DATA_DIR + "model_" + model_hash + ".json"
+     
+    return model_h5_path, model_pars_json
     
-    #%%
-    model = train_model( cfg, samples )
-    model.save( DATA_DIR + f"model_{model_hash}_{len(samples)}.h5" )
-        
-    #%%
+    
     
 def train_model( cfg, samples ) : 
     model = build_model( cfg )
@@ -86,7 +136,9 @@ def train_model( cfg, samples ) :
     valid_generator = generator( valid_samples, cfg )
         
     #%% Fit
-    model.compile( loss='mse', optimizer='adam' )
+    optimizer = Adam( lr = cfg["learning_rate"] )
+    #%%
+    model.compile( loss='mse', optimizer=optimizer )
     model.fit_generator( train_generator, 
                          steps_per_epoch=len(train_samples) // bs ,
                          validation_data=valid_generator,
@@ -99,7 +151,7 @@ def train_model( cfg, samples ) :
 
 def build_model( cfg ) : 
     """Heavily inspired by code in Behavioral Cloning, 
-       section 15. Even Mode Powerful Network
+       section 15. Even More Powerful Network
        Just added dropout"""
        
     model = Sequential() 
@@ -114,8 +166,7 @@ def build_model( cfg ) :
     model.add( Dropout(cfg["dropout_cs"]) )    
     model.add( Convolution2D(64, (3,3), activation="relu") )
     model.add( Dropout(cfg["dropout_cs"]) )
-    
-    
+        
     model.add( Flatten() )
     model.add( Dense(100, activation="relu") )
     model.add( Dropout(cfg["dropout_d1"]) )
@@ -131,12 +182,12 @@ def read_samples() :
         reader = csv.reader( csvfile )
         samples = list( reader ) 
         
-    print( f"samples from driving_log has {len(samples)}" )
+    print( "samples from driving_log has {n}".format(n=len(samples)) )
     
     img_files = set( os.listdir( DATA_DIR + "IMG" ) ) 
     samples = [ row for row in samples if row[0].split("/")[-1] in img_files ]   
     
-    print( f"samples that have img {len(samples)}" )
+    print( "samples that have img {n}".format(n=len(samples)) )
     
     return samples 
 
@@ -181,13 +232,15 @@ def generator( samples, cfg ) :
     num_samples = len(samples)
     
     batch_size = cfg["batch_size"]
-    side_correct_mode  = cfg["side_image_correction_mode"]
-    side_correct_param = cfg["side_image_correction_param"]
+    side_correct_mode  = cfg["side_img_correct_mode"]
+    side_correct_param = cfg["side_img_correct_param"]
+    
+    print( "side_correct_mode=", side_correct_mode, 1 if side_correct_mode else 0)
     
     if side_correct_mode == "additive" : 
-        def correction_fn_left( angle )  :
+        def correct_fn_left( angle )  :
             return angle + side_correct_param 
-        def correction_fn_right( angle )  :
+        def correct_fn_right( angle )  :
             return angle - side_correct_param 
         
     else : 
@@ -215,8 +268,7 @@ def generator( samples, cfg ) :
         for offset in range( 0, num_samples, batch_size ) :
             batch_samples = samples[offset : offset + batch_size ]
             img_angle_ps = []
-            
-            
+                        
             for sample in batch_samples:                 
                 center_image = cv2.imread( get_img_fname( sample[0] )  )
                 center_angle = float( sample[3] )
@@ -224,11 +276,11 @@ def generator( samples, cfg ) :
                                 
                 mirrored_img = center_image[ : ,::-1, :] 
                 img_angle_ps.append( (mirrored_img, -center_angle ) )
-                del center_image, mirrored_image
+                del center_image, mirrored_img
                 
                 if side_correct_mode  :                    
                     left_image  = cv2.imread( get_img_fname( sample[1] ) )                                        
-                    left_angle = correction_fn_left( center_angle )
+                    left_angle = correct_fn_left( center_angle )
                     img_angle_ps.append( (left_image, left_angle ) )
                     left_mirrored = left_image[ :, ::-1, :]
                     img_angle_ps.append( (left_mirrored, -left_angle ) )
@@ -236,7 +288,7 @@ def generator( samples, cfg ) :
                     del left_image, left_angle, left_mirrored
                     
                     right_image  = cv2.imread( get_img_fname( sample[2] ) )                                        
-                    right_angle = correction_fn_right( center_angle )
+                    right_angle = correct_fn_right( center_angle )
                     img_angle_ps.append( (right_image, right_angle ) )
                     right_mirrored = right_image[ :, ::-1, :]
                     img_angle_ps.append( (right_mirrored, -right_angle ) )
@@ -246,7 +298,8 @@ def generator( samples, cfg ) :
             
             yield X_train, y_train
             
-        print( f"generator going around {num_samples} (last_offset={offset})")
+        #print( "generator going around {num_samples} (last_offset=offset)"
+        #       .format(n=num_samples, lo=offset))
                                
 def get_img_fname( full_path ) :
     return DATA_DIR + "IMG/" + full_path.split('/')[-1]
@@ -261,4 +314,4 @@ def test() :
     #%%
 
 if os.name == "posix" : 
-    main() 
+    train_1_config() 
