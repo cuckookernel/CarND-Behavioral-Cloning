@@ -48,6 +48,7 @@ if os.name != 'nt' :
     DATA_DIR = "/home/workspace/"
 #%%
 def train_1_config() :
+    #%%
     cfg = { "dropout_d1" : 0.6, # dropout rate at first dense layer
         "dropout_cs" : 0.4, # dropout rate at conv layers layer
         "batch_size" : 32, 
@@ -56,7 +57,7 @@ def train_1_config() :
         "final_activation" : "tanh",
         "side_img_correct_mode" : "additive",
         "side_img_correct_param" : 0.10 }
-    
+    #%%
     samples = read_samples()
     model_h5_path, model_pars_json = get_model_path( cfg, len(samples) ) 
     
@@ -71,8 +72,9 @@ def search_correction_params() :
             "epochs" : 20, 
             "learning_rate" : 0.0005,   
             "final_activation" : "tanh",
-            "side_img_correct_mode" : "additive",
-            "side_img_correct_param" : 0.10 }
+            "side_img_correct_mode"  : None, # to be set later
+            "side_img_correct_param" : None, # to be set later
+            }
     #%%
     samples = read_samples()
     #%%
@@ -303,6 +305,15 @@ def generator( samples, cfg ) :
                                
 def get_img_fname( full_path ) :
     return DATA_DIR + "IMG/" + full_path.split('/')[-1]
+
+def visualize_network( cfg ) : 
+    #%%
+    from keras.utils import plot_model 
+    model = build_model( cfg )
+    
+    plot_model( model, to_file='model.png' )
+    
+    #%%
 
 def test() :
     #%%
