@@ -1,8 +1,4 @@
-# **Behavioral Cloning** 
-
-## Writeup Template
-
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
+# **Behavioral Cloning** - Project Writeup 
 
 ---
 
@@ -23,8 +19,8 @@ The goals / steps of this project are the following:
 [image3]: ./examples/recover_left.jpg "Recover from left"
 [image4]: ./examples/recover_right.jpg "Recovery from right"
 [image5]: ./examples/placeholder_small.png "Recovery Image"
-[unmirrored]: ./examples/unmirrored.png "Normal Image"
-[mirrorored]: ./examples/mirrored.png "Flipped Image"
+[unmirrored]: ./examples/unmirrored.jpg "Normal Image"
+[mirrored]: ./examples/mirrored.jpg "Flipped Image"
 
 ## Rubric Points
 ### Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/432/view) individually and describe how I addressed each point in my implementation.  
@@ -134,13 +130,13 @@ I tried two different parameterized approaches, called `side_img_correct_mode`s 
   - Perform 'additive' correction. That is, change the angle as $\alpha -> \alpha \pm \gamma$, where $\gamma$ is a constant such as 0.1  or 0.5 and the sign is chosen as $+$ if the image is from the left camera and the as $-$ if the images is from the right. 
   - Perform 'multiplicative' correction. That is, change the angle as $\alpha -> \alpha ( 1 \pm \gamma)$, where, again, $\gamma$ is a constant such as 0.1  or 0.5 and the sign is chosen as to make the angle more negative or more positive depending on its current sign and wether the camera is the left or right hand side camera. The details of the logic here are in the code inside the generator function where the nested functions `correct_left` and `correct_right` are defined (lines 240 through 265)
   
- After training the model with a few choices of the $\gamma$ parameters ( called `side_img_correct_param`) in the code a seeing most of the resulting models crash and almost burn, or get stuck against virtual tires, a couple of models actually managed to make a full lap. The one I am submitting corresponds to the 'multiplicative' correction with $\gamma = 0.25$ 
+Side camera images where also mirrored and the angle correspondingly flipped after the correction applied. 
+  
+ After training the model with a few choices of the $\gamma$ parameters ( called `side_img_correct_param` in the code) for each correction mode and  a seeing most of the resulting models crash and -- almost -- burn, or get stuck against virtual tires, a couple of models actually managed to make a full lap. The one I am submitting corresponds to the 'multiplicative' correction with $\gamma = 0.25$ 
    
 The generator does shuffling of the whole data set (line 268).
 
 In function train_model I split the data set into 70% train, 24% validation and 6% test, although, in the end, I am not using the test set for anything...
 
-I ran training always for 20 epochs as it seemed more than enough for both training and validation error curves to flatten at around $0.03$ mse, which I think was pretty decent...
-
-
+I ran training always for 20 epochs as it seemed more than enough for both training and validation error curves to flatten at around $0.03$ MSE, which I think was pretty decent...
 
