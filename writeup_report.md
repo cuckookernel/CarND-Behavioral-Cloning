@@ -40,6 +40,9 @@ My project includes the following files:
 * **`model.h5`**: containing a trained convolution neural network 
 * **`writeup_report.md`**: you are reading it
 
+Besides this file, the video of a whole lap driven by the trained network is available here: https://youtu.be/pNxtBFdwN7k
+
+
 #### 2. Submission includes functional code
 Using the Udacity provided simulator and my drive.py file, the car can be driven autonomously around the track by executing 
 ```sh
