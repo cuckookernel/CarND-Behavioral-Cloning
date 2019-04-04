@@ -309,9 +309,8 @@ def get_img_fname( full_path ) :
 def visualize_network( cfg ) : 
     #%%
     from keras.utils import plot_model 
-    model = build_model( cfg )
-    
-    plot_model( model, to_file='model.png' )
+    model = build_model( cfg )    
+    plot_model( model, to_file='./examples/model.png', show_shapes= True, rankdir='TB' )
     
     #%%
 
